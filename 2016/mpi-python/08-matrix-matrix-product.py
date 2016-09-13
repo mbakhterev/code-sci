@@ -40,8 +40,6 @@ if __name__ == "__main__":
     neigh[NORTH], neigh[SOUTH] = ccomm.Shift(0, 1)
     neigh[EAST],  neigh[WEST]  = ccomm.Shift(1, 1)
 
-
-    # Create matrices
     my_A = np.random.normal(size=(my_N, my_M)).astype(np.float32)
     my_B = np.random.normal(size=(my_N, my_M)).astype(np.float32)
     my_C = np.zeros_like(my_A)
@@ -59,13 +57,9 @@ if __name__ == "__main__":
         req[SOUTH] = ccomm.Isend(tile_B , neigh[SOUTH])
         req[NORTH] = ccomm.Irecv(tile_B_, neigh[NORTH])
 
-        #t0 = time()
         my_C += np.dot(tile_A, tile_B)
-        #t1 = time()
 
         req[0].Waitall(req)
-        #t2 = time()
-        #print("Time computing %6.2f  %6.2f" % (t1-t0, t2-t1))
     comm.barrier()
     t_total = time()-t0
 
@@ -78,7 +72,4 @@ if __name__ == "__main__":
     pprint(" ... expecting parallel computation to take %6.2f seconds" % (mpi_rows*mpi_rows*mpi_cols*t_serial / comm.size))
     pprint("Computed (parallel) %d x %d x %d in        %6.2f seconds" % (mpi_rows*my_M, mpi_rows*my_M, mpi_cols*my_N, t_total))
     
-
-    #print "[%d] (%d,%d): %s" % (comm.rank, my_mpi_row, my_mpi_col, neigh)
-
     comm.barrier()
