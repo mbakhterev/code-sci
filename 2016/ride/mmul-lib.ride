@@ -1,0 +1,33 @@
+(def block-n 64)
+(def l 100)
+(def n 200)
+(def m 300)
+
+(fn matrix-random (mtx-r) (:= mtx-r (repeat block-n (repeat block-n (rand)))))
+
+(fn distributed-matrix-mul (mat-r mat-a mat-b)
+  (for (i (range l)
+        j (range n)
+        k (range m))
+    (run matrix-mul (! zip 'i.j) (pin mat-a 'i.k) (pin mat-b 'k.j)))
+
+  (fn queue-sum (result sum block-queue n-blocks)
+    (if (= 0 n-blocks)
+      (run (fn (r s) (:= r s)) (! pin result) (pin sum))
+
+      (do
+        (run matrix-add (! pin :sum) (pin sum) (zip block-queue))
+          
+        (run queue-sum (! pin result)
+                       (? pin :sum) (? zip block-queue) (- n-blocks 1)))))
+  
+    (for (i (range l)
+          j (range n))
+      (run queue-sum (! pin mat-r 'i.j) (zero-matrix) (? zip 'i.j) m)))
+
+(fn main (args)
+  (for (i (range l))
+    (for (j (range m)) (run matrix-random (! pin :A 'i.j)))
+    (for (k (range n)) (run matrix-random (! pin :B 'k.i))))
+  
+  (run distributed-matrix-mul (! pin :R (span "")) (? pin (seq :A :B))))
