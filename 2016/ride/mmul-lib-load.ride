@@ -1,7 +1,4 @@
-(def block-n 64)
-(def l 100)
-(def n 200)
-(def m 300)
+(def block-n 64 l 100 n 200 m 300)
 
 (fn distributed-matrix-mul (mat-r mat-a mat-b)
   (for (i (range l)
@@ -23,9 +20,15 @@
           j (range n))
       (run queue-sum (! pin mat-r 'i.j) (zero-matrix) (? zip 'i.j) m)))
 
+(fn watchdog (zproc start)
+  (if (not= zproc :done) (run watchdog zproc start)
+                         (print "time:" (- (current-time) start))))
+
 (fn main (args)
-  (run distributed-matrix-mul (! pin (nth args 1 :R) (span ""))
-                              (? pin root (seq (nth args 2 :A)
-                                               (nth args 3 :B))))
+  (run watchdog (zip "proc") (current-time))
+
+  (fork (? zip "proc")
+        distributed-matrix-mul (! pin (nth args 1) (span ""))
+                               (? pin root (seq (nth args 2) (nth args 3))))
 
   (run (fn (r s) (:= r s)) (! zip api :update-root) (? pin)))

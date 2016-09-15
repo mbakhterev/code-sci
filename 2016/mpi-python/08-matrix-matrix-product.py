@@ -1,7 +1,3 @@
-#!/usr/bin/env python 
-
-# Code from: https://github.com/jbornschein/mpi4py-examples/blob/master/08-matrix-matrix-product.py
-
 from __future__ import division
 
 import numpy as np 

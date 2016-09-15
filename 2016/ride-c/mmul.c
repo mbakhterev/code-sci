@@ -1,11 +1,9 @@
 #include <ride.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
-#define BLK_N 64
-#define L     64
-#define M     64
-#define N     64
+static const int BLK_N = 64, L = 64, M = 64, N = 64;
 
 void matrix_mul(const int R, const int A, const int B)
 {
@@ -76,20 +74,28 @@ static void distributed_matrix_mul(const int R, const int A, const int B)
   }
 }
 
+void watchdog(const int proc_zip, const int start)
+{
+  if(rvallong(proc_zip) != RDONE) rrun("watchdog", proc_zip, start);
+  else
+    printf("time: %d\n", difftime(time(NULL), rvallong(start)));
+}
+
 void main(int argc, const char *const argv[])
 {
-  if (rnode() == 0) {
-    for (unsigned j = 0; j < M; j++) {
-      for (unsigned i = 0; i < L; i++)
-        rrun("init_rand_matrix", rpin(WR, rstr("A"), rfmt("%d.%d", i, j)));
+  rrun("watchdog", rzip(rstr("proc")), rblocklong(time(NULL)));
 
-      for (unsigned k = 0; k < N; k++)
-        rrun("init_rand_matrix", rpin(WR, rstr("B"), rfmt("%d.%d", j, k)));
-    }
+  for (unsigned j = 0; j < M; j++) {
+    for (unsigned i = 0; i < L; i++)
+      rrun("init_rand_matrix", rpin(WR, rstr("A"), rfmt("%d.%d", i, j)));
 
-    rrun("distributed_matrix_mul", rrefpin(WR, rstr("R"), rspan("")),
-                                   rrefpin(RD, rseq(rstr("A"), rstr("B"))));
+    for (unsigned k = 0; k < N; k++)
+      rrun("init_rand_matrix", rpin(WR, rstr("B"), rfmt("%d.%d", j, k)));
   }
+
+  rfork(rrefzip(WR, rstr("proc")),
+        "distributed_matrix_mul", rrefpin(WR, rstr("R"), rspan("")),
+                                  rrefpin(RD, rseq(rstr("A"), rstr("B"))));
 
   return 0;
 }

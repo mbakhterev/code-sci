@@ -1,16 +1,14 @@
-// http://www.cs.ucsb.edu/~tyang/class/240b99/homework/sam_mm.c
-
 # include <mpi.h>
 # include <stdio.h>
 # include <stdlib.h>
 
-static int n;	 	 /* size of the matrix */
-static int bsize;	 /* size of the sub-matrix */
-static int bnum;	 /* number of sub-matrix columns/rows in the matrix */ 
-static int nproc;	 /* number of MPI nodes */
-static int myid; 	 /* my own rank */
+static int n;
+static int bsize;
+static int bnum;
+static int nproc;
+static int myid;
 
-static double *A, *B, *C, *buf; /* buf is the temporary storage */
+static double *A, *B, *C, *buf;
 
 int LOCAL(int i)
 {
@@ -126,7 +124,7 @@ int main(int argc, char *argv[])
 	n=atoi(argv[1]);
 	bsize=atoi(argv[2]);
 
-	bnum=n/bsize; /* For simplicity, assume they are all correct. */
+	bnum=n/bsize;
 	if ( (bnum*bsize!=n) || (bnum/nproc*nproc!=bnum) ) {
 		if (myid==0)
 			fprintf(stderr, "Invalid parameters <nproc=%d> <n=%d> <n/q=%d>.\n", nproc, n, bsize);

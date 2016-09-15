@@ -2,11 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cblas.h>
+#include <time.h>
 
-#define BLK_N 64
-#define L     64
-#define M     64
-#define N     64
+static const int BLK_N = 64, L = 64, M = 64, N = 64;
 
 void matrix_mul(const int R, const int A, const int B)
 {
@@ -62,16 +60,24 @@ static void distributed_matrix_mul(const int R, const int A, const int B)
   }
 }
 
+void watchdog(const int proc_zip, const int start)
+{
+  if(rvallong(proc_zip) != RDONE) rrun("watchdog", proc_zip, start);
+  else
+    printf("time: %d\n", difftime(time(NULL), rvallong(start)));
+}
+
 void main(int argc, const char *const argv[])
 {
   const int R = rstr(argv[1]), A = rstr(argv[2]), B = rstr(argv[3]);
 
-  if (ride_node() == 0) {
-    rrun("distributed_matrix_mul", rrefpin(WR, R, ride_span("")),
-                                   rrefpin(RD, RROOT, rseq(A, B)));
+  rrun("watchdog", rzip(rstr("proc")), rblocklong(time(NULL)));
 
-    rrun("bind", rref(WR, rzip(RAPI, rstr("update-root"))), rpinref(RD));
-  }
+  rfork(rrefzip(WR, rstr("proc")),
+        "distributed_matrix_mul", rrefpin(WR, R, rspan("")),
+                                  rrefpin(RD, RROOT, rseq(A, B)));
+
+  rrun("bind", rref(WR, rzip(RAPI, rstr("update-root"))), rrefpin(RD));
 
   return 0;
 }

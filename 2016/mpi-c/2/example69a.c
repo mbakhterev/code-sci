@@ -1,5 +1,3 @@
-// https://parallel.ru/sites/default/files/tech/tech_dev/MPI%26OpenMP/example69a.c
-
 #include <stdio.h>
 #include <mpi.h>
 #define N 4096

@@ -1,7 +1,4 @@
-(def block-n 64)
-(def l 100)
-(def n 200)
-(def m 300)
+(def block-n 64 l 100 n 200 m 300)
 
 (fn matrix-mul (mtx-r mtx-a mtx-b)
   (:= mtx-r (for (a mtx-a)
@@ -10,7 +7,9 @@
 (fn matrix-add (mtx-r mtx-a mtx-b)
   (:= mtx-r (map (fn (a b) (map + a b)) mtx-a mtx-b)))
 
-(fn matrix-random (mtx-r) (:= mtx-r (repeat block-n (repeat block-n (rand)))))
+(fn random-matrix (mtx-r) (:= mtx-r (repeat block-n (repeat block-n (rand)))))
+
+(fn zero-matrix () (repeat block-n (repeat block-n 0)))
 
 (fn distributed-matrix-mul (mat-r mat-a mat-b)
   (for (i (range l)
@@ -32,9 +31,16 @@
           j (range n))
     (run queue-sum (! pin mat-r 'i.j) (zero-matrix) (? zip 'i.j) m)))
 
+(fn watchdog (zproc start)
+  (if (not= zproc :done) (run watchdog zproc start)
+                         (print "time:" (- (current-time) start))))
+
 (fn main (args)
+  (run watchdog (zip "proc") (current-time))
+
   (for (i (range l))
-    (for (j (range m)) (run matrix-random (! pin :A 'i.j)))
-    (for (k (range n)) (run matrix-random (! pin :B 'k.i))))
+    (for (j (range m)) (run random-matrix (! pin :A 'i.j)))
+    (for (k (range n)) (run random-matrix (! pin :B 'k.i))))
   
-  (run distributed-matrix-mul (! pin :R (span "")) (? pin (seq :A :B))))
+  (fork (! zip "proc") distributed-matrix-mul (! pin :R (span ""))
+                                              (? pin (seq :A :B))))
