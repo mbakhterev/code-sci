@@ -64,13 +64,11 @@ static void distributed_matrix_mul(const int R, const int A, const int B)
 
 void main(int argc, const char *const argv[])
 {
-  const int A = rstr(argc > 2 ? argv[2] : "A"),
-            B = rstr(argc > 3 ? argv[3] : "B"),
-            R = rstr(argc > 1 ? argv[1] : "R");
+  const int R = rstr(argv[1]), A = rstr(argv[2]), B = rstr(argv[3]);
 
   if (ride_node() == 0) {
-    ride_run("distributed_matrix_mul", rrefpin(WR, R, ride_span("")),
-                                       rrefpin(RD, RROOT, rseq(A, B)));
+    rrun("distributed_matrix_mul", rrefpin(WR, R, ride_span("")),
+                                   rrefpin(RD, RROOT, rseq(A, B)));
 
     rrun("bind", rref(WR, rzip(RAPI, rstr("update-root"))), rpinref(RD));
   }
