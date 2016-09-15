@@ -9,10 +9,10 @@
 
 void matrix_mul(const int R, const int A, const int B)
 {
-  const double[BLK_N] *const restrict a = ride_data(A),
-                      *const restrict b = ride_data(B);
+  const double (*const restrict a)[BLK_N] = rval(A),
+               (*const restrict b)[BLK_N] = rval(B);
 
-  double[BLK_N] *const restrict r = ride_allocate(R, BLK_N * BLK_N * sizeof(double));
+  double (*const restrict r)[BLK_N] = ralloc(R, BLK_N * BLK_N * sizeof(double));
 
   for (unsigned i = 0; i < BLK_N; i++) 
   for (unsigned j = 0; j < BLK_N; j++)
@@ -21,10 +21,10 @@ void matrix_mul(const int R, const int A, const int B)
 
 void matrix_add(const int R, const int A, const int B)
 {
-  const double *const restrict a = ride_data(A);
-               *const restrict b = ride_data(B);
+  const double *const restrict a = rval(A);
+               *const restrict b = rval(B);
 
-  double *const r = ride_allocate(R, BLK_N * BLK_N * sizeof(double));
+  double *const r = ralloc(R, BLK_N * BLK_N * sizeof(double));
 
   for (unsigned i = 0; i < BLK_N * BLK_N; i++) r[i] = a[i] + b[i];
 }
@@ -32,78 +32,64 @@ void matrix_add(const int R, const int A, const int B)
 void queue_sum(const int result,
                const int sum, const int block_queue, const int n_blocks)
 {
-  if (*n_blks == 0)
-  {
-    ride_run(ride_bind, ride_ref(WR, result), sum);
-  }
-  else
-  {
-    const int sum_pin = ride_pin(ride_str("sum"));
+  if (n_blocks == 0) rrun("bind", rref(WR, result), sum);
+  else {
+    const int sum_pin = rpin(ride_str("sum"));
 
-    ride_run("matrix_add", sum_pin, sum, block_queue);
+    rrun("matrix_add", rref(sum_pin), sum, block_queue);
 
-    ride_run("queue_sum", ride_ref(WR, result),
-                          ride_ref(RD, sum_pin, block_queue),
-                          ride_block_long(ride_long(n_blocks) + 1));
+    rrun("queue_sum", rref(WR, result), rref(RD, sum_pin, block_queue),
+                      rblocklong(rvallong(n_blocks) + 1));
   }
 }
 
-static const int zero_matrix(void)
+static int zero_matrix(void)
 {
   const size_t sz = BLK_N * BLK_N * sizeof(double);
-  return ride_block(calloc(sz), sz);
+  return rblock(calloc(sz), sz);
 }
 
 void init_rand_matrix(const int R)
 {
-  double *const r = ride_allocate(R, BLK_N * BLK_N * sizeof(double));
+  double *const r = ralloc(R, BLK_N * BLK_N * sizeof(double));
 
   for (unsigned i = 0; i < BLK_N * BLK_N; i++) r[i] = rand();
 }
 
 static void distributed_matrix_mul(const int R, const int A, const int B)
 {
-  const int zero = zero_matrix();
+  const int Z = zero_matrix();
 
   for (unsigned i = 0; i < L; i++)
-  for (unsigned j = 0; j < N; j++)
-  {
+  for (unsigned j = 0; j < N; j++) {
+    const int sum_zip = rzip(rfmt("%d.%d", i, j));
 
-    const int sum_zip = ride_zip(ride_fmt("%d.%d", i, j));
+    for (unsigned k = 0; k < M; k++) {
+      const int aik_pin = rpin(A, rfmt("%d.%d", i, k)),
+                bkj_pin = rpin(B, rfmt("%d.%d", k, j));
 
-    for (unsigned k = 0; k < M; k++)
-    {
-      const int aik_pin = ride_pin(A, ride_fmt("%d.%d", i, k)),
-                bkj_pin = ride_pin(B, ride_fmt("%d.%d", k, j));
-
-      ride_run("matrix_mul", ride_ref(WR, sum_zip), aik_pin, bkj_pin);
+      rrun("matrix_mul", rref(WR, sum_zip), aik_pin, bkj_pin);
     }
 
-    ride_run("queue_sum", ride_ref_pin(WR, R, ride_fmt("%d.%d", i, j)),
-                          zero, ride_ref(RD, sum_zip),
-                          ride_block_long(N));
+    rrun("queue_sum", rrefpin(WR, R, rfmt("%d.%d", i, j)),
+                      Z, rref(RD, sum_zip), rblocklong(N));
   }
 }
 
 void main(int argc, const char *const argv[])
 {
-  const int A = ride_str("A");
-  const int B = ride_str("B");
-
-  if (ride_node() == 0) {
+  if (rnode() == 0) {
     for (unsigned j = 0; j < M; j++) {
       for (unsigned i = 0; i < L; i++)
-        ride_run("init_rand_matrix", ride_ref_pin(WR, A, ride_fmt("%d.%d", i, j)));
+        rrun("init_rand_matrix", rpin(WR, rstr("A"), rfmt("%d.%d", i, j)));
 
       for (unsigned k = 0; k < N; k++)
-        ride_run("init_rand_matrix", ried_ref_pin(WR, B, ride_fmt("%d.%d", j, k)));
+        rrun("init_rand_matrix", rpin(WR, rstr("B"), rfmt("%d.%d", j, k)));
     }
+
+    rrun("distributed_matrix_mul", rrefpin(WR, rstr("R"), rspan("")),
+                                   rrefpin(RD, rseq(rstr("A"), rstr("B"))));
   }
-
-  ride_run("distributed_matrix_mul", ride_ref_pin(WR, ride_str("R"), ride_span("")),
-                                     ride_ref_pin(RD, ride_seq(A, B));
-
-  ride_loop();
 
   return 0;
 }

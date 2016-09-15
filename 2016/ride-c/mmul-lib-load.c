@@ -17,8 +17,8 @@ void matrix_mul(const int R, const int A, const int B)
 
 void matrix_add(const int R, const int A, const int B)
 {
-  rbindrewrite(R, A);
-  cblas_daxpy(BLK_N, 1.0, rval(B), 1, rval(R), 1);
+  rbind(R, B);
+  cblas_daxpy(BLK_N, 1.0, rval(A), 1, rval(R), 1);
 }
 
 void queue_sum(const int result,
@@ -41,13 +41,6 @@ static const int zero_matrix(void)
   return rblock(calloc(sz), sz);
 }
 
-void init_rand_matrix(const int R)
-{
-  double *const r = ralloc(R, BLK_N * BLK_N * sizeof(double));
-
-  for (unsigned i = 0; i < BLK_N * BLK_N; i++) r[i] = rand();
-}
-
 static void distributed_matrix_mul(const int R, const int A, const int B)
 {
   const int Z = zero_matrix();
@@ -56,31 +49,30 @@ static void distributed_matrix_mul(const int R, const int A, const int B)
   for (unsigned j = 0; j < N; j++) {
     const int sum_zip = rzip(rfmt("%d.%d", i, j));
 
-    for (unsigned k = 0; k < M; k++) {
+    for (unsigned k = 0; k < M; k++)
+    {
       const int aik_pin = rpin(A, rfmt("%d.%d", i, k)),
                 bkj_pin = rpin(B, rfmt("%d.%d", k, j));
 
-      ride_run("matrix_mul", rref(WR, sum_zip), aik_pin, bkj_pin);
+      rrun("matrix_mul", rref(WR, sum_zip), aik_pin, bkj_pin);
     }
 
-    rrun("queue_sum", rrefpin(WR, R, ride_fmt("%d.%d", i, j)),
-                              Z, rref(RD, sum_zip), rblocklong(N));
+    rrun("queue_sum", rrefpin(WR, R, rfmt("%d.%d", i, j)),
+                      Z, rref(RD, sum_zip), rblocklong(N));
   }
 }
 
 void main(int argc, const char *const argv[])
 {
-  if (rnode() == 0) {
-    for (unsigned j = 0; j < M; j++) {
-      for (unsigned i = 0; i < L; i++)
-        rrun("init_rand_matrix", rrefpin(WR, rstr("A"), rfmt("%d.%d", i, j)));
+  const int A = rstr(argc > 2 ? argv[2] : "A"),
+            B = rstr(argc > 3 ? argv[3] : "B"),
+            R = rstr(argc > 1 ? argv[1] : "R");
 
-      for (unsigned k = 0; k < N; k++)
-        rrun("init_rand_matrix", rrefpin(WR, rstr("B"), rfmt("%d.%d", j, k)));
-    }
+  if (ride_node() == 0) {
+    ride_run("distributed_matrix_mul", rrefpin(WR, R, ride_span("")),
+                                       rrefpin(RD, RROOT, rseq(A, B)));
 
-    rrun("distributed_matrix_mul", rrefpin(WR, rstr("R"), rspan("")),
-                                   rrefpin(RD, rseq(rstr("A"), rstr("B"))));
+    rrun("bind", rref(WR, rzip(RAPI, rstr("update-root"))), rpinref(RD));
   }
 
   return 0;

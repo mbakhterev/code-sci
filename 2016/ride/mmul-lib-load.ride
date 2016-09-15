@@ -1,0 +1,31 @@
+(def block-n 64)
+(def l 100)
+(def n 200)
+(def m 300)
+
+(fn distributed-matrix-mul (mat-r mat-a mat-b)
+  (for (i (range l)
+        j (range n)
+        k (range m))
+    (run matrix-mul (! zip 'i.j) (pin mat-a 'i.k) (pin mat-b 'k.j)))
+
+  (fn queue-sum (result sum block-queue n-blocks)
+    (if (= 0 n-blocks)
+      (run (fn (r s) (:= r s)) (! pin result) (pin sum))
+
+      (do
+        (run matrix-add (! pin :sum) (pin sum) (zip block-queue))
+          
+        (run queue-sum (! pin result)
+                       (? pin :sum) (? zip block-queue) (- n-blocks 1)))))
+  
+    (for (i (range l)
+          j (range n))
+      (run queue-sum (! pin mat-r 'i.j) (zero-matrix) (? zip 'i.j) m)))
+
+(fn main (args)
+  (run distributed-matrix-mul (! pin (nth args 1 :R) (span ""))
+                              (? pin root (seq (nth args 2 :A)
+                                               (nth args 3 :B))))
+
+  (run (fn (r s) (:= r s)) (! zip api :update-root) (? pin)))
