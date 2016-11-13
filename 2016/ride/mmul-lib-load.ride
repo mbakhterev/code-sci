@@ -27,8 +27,8 @@
 (fn main (args)
   (run watchdog (zip "proc") (current-time))
 
-  (fork (? zip "proc")
-        distributed-matrix-mul (! pin (nth args 1) (span ""))
-                               (? pin root (seq (nth args 2) (nth args 3))))
+  (run fork (? zip "proc")
+       distributed-matrix-mul (! pin (nth args 1) (span ""))
+                              (? pin root (br (nth args 2) (nth args 3))))
 
   (run (fn (r s) (:= r s)) (! zip api :update-root) (? pin)))

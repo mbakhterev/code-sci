@@ -31,5 +31,5 @@
     (for (j (range m)) (run random-matrix (! pin :A 'i.j)))
     (for (k (range n)) (run random-matrix (! pin :B 'k.i))))
   
-  (fork (! zip "proc") distributed-matrix-mul (! pin :R (span ""))
-                                              (? pin (seq :A :B))))
+  (run fork (! zip "proc") distributed-matrix-mul (! pin :R (span ""))
+                                                  (? pin (br :A :B))))

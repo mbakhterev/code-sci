@@ -93,9 +93,9 @@ void main(int argc, const char *const argv[])
       rrun("init_rand_matrix", rpin(WR, rstr("B"), rfmt("%d.%d", j, k)));
   }
 
-  rfork(rrefzip(WR, rstr("proc")),
-        "distributed_matrix_mul", rrefpin(WR, rstr("R"), rspan("")),
-                                  rrefpin(RD, rseq(rstr("A"), rstr("B"))));
+  rrun("fork", rrefzip(WR, rstr("proc")),
+       "distributed_matrix_mul", rrefpin(WR, rstr("R"), rspan("")),
+                                 rrefpin(RD, rbr(rstr("A"), rstr("B"))));
 
   return 0;
 }

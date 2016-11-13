@@ -72,9 +72,9 @@ void main(int argc, const char *const argv[])
 
   rrun("watchdog", rzip(rstr("proc")), rblocklong(time(NULL)));
 
-  rfork(rrefzip(WR, rstr("proc")),
-        "distributed_matrix_mul", rrefpin(WR, R, rspan("")),
-                                  rrefpin(RD, RROOT, rseq(A, B)));
+  rrun("fork", rrefzip(WR, rstr("proc")),
+       "distributed_matrix_mul", rrefpin(WR, R, rspan("")),
+                                 rrefpin(RD, RROOT, rbr(A, B)));
 
   rrun("bind", rref(WR, rzip(RAPI, rstr("update-root"))), rrefpin(RD));
 
